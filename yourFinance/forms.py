@@ -3,6 +3,24 @@ import re
 from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
+from .models import Year, Month, Stash
+
+class YearForm(forms.ModelForm):
+    class Meta:
+        model = Year
+        fields = ('number',)
+
+
+class MonthForm(forms.ModelForm):
+    class Meta:
+        model = Month
+        fields = ('name',)
+
+
+class StashForm(forms.ModelForm):
+    class Meta:
+        model = Stash
+        fields = ('name', 'amount')
 
 
 class RegistrationForm(forms.Form):
