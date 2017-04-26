@@ -1,12 +1,22 @@
 {% extends 'yourFinance/base.html' %}
 {% block content %}
 	{% for year in years %}
-		{{ year.number|linebreaks }}
+		<br>
+		{{ year.number }}
+		<a href="{% url 'delete year' year.id %}">delete</a>
+		<br>
+		<br>
 		{% for month in year.get_ordered_months %}
-			{{ month.name|linebreaks }}
+			<br>
+			{{ month.name }}
+			<a href="{% url 'edit month' month.id %}">edit</a>
+			<a href="{% url 'delete month' month.id %}">delete</a>
+			<br>
+			<br>
 			{% for stash in month.stash_set.all %}
 				{{stash.name}} {{stash.amount}}
 				<a href="{% url 'edit stash' stash.id %}">edit</a>
+				<a href="{% url 'delete stash' stash.id %}">delete</a>
 				<br>
 			{% empty %}
 			<p>--No money deposition places for this month--</p>

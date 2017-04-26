@@ -9,6 +9,12 @@
 <p>What would you like to do:</p>
 <ul>
 	<li><a href="{% url 'add data' %}">Add new data</a></li>
-	<li><a href="{% url 'view data' %}">View and edit data</a></li>
+	<li><a href="{% url 'view data' %}">View, edit and delete data</a></li>
+	<li>Configure settings:</li>
+	<ul>
+		<li><a href="{% url 'configure deposition places' %}">Configure names of money deposition places</a></li>
+		<li><a href="{% url 'configure monthly costs' %}">Configure monthly costs amounts</a></li>
+		<li><a href="{% url 'configure cost groups' %}">Configure current costs groups</a></li>
+	</ul>
 </ul>
 {% endblock content %}

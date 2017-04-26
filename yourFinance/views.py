@@ -1,9 +1,9 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-from django.forms import modelformset_factory
+from django.forms import modelformset_factory, formset_factory
 
-from .forms import RegistrationForm, YearForm, MonthForm, StashForm
+from .forms import RegistrationForm, YearForm, MonthForm, StashForm, NameForm, MonthlyCostsForm
 from .models import Profile, Stash, Month, Year
 
 def make_initial_list(elementName, choicesString):
@@ -117,3 +117,116 @@ def edit_stash(request, pk):
     return render(request,
                   'yourFinance/edit_stash.html',
                   {'form': form, 'message': message})
+
+@login_required
+def edit_month(request, pk):
+    """Edit single Month entry together with Stash objects."""
+    message = 'Here you can edit chosen data.'
+    month = get_object_or_404(Month, pk=pk)
+    StashFormSet = modelformset_factory(Stash,
+                                        form=StashForm,
+                                        extra=0)
+    if request.method == 'POST':
+        form = MonthForm(request.POST, instance=month)
+        formset = StashFormSet(request.POST)
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            return render(request, 'yourFinance/success.html')
+
+    form = MonthForm(instance=month)
+    formset = StashFormSet(queryset=Stash.objects.filter(month=month))
+    return render(request,
+                  'yourFinance/edit_month.html',
+                  {'form': form, 'formset': formset, 'message': message})
+
+@login_required
+def delete_stash(request, pk):
+    """Delete single Stash entry."""
+    stash = get_object_or_404(Stash, pk=pk)
+    if request.method == 'POST':
+        stash.delete()
+        return render(request, 'yourFinance/success.html')
+    return render(request, 'yourFinance/confirm_delete.html')
+
+@login_required
+def delete_month(request, pk):
+    """Delete single Month entry with Stash objects."""
+    month = get_object_or_404(Month, pk=pk)
+    if request.method == 'POST':
+        month.delete()
+        return render(request, 'yourFinance/success.html')
+    return render(request, 'yourFinance/confirm_delete.html')
+
+@login_required
+def delete_year(request, pk):
+    """Delete single Year entry with Month and Stash objects."""
+    year = get_object_or_404(Year, pk=pk)
+    if request.method == 'POST':
+        year.delete()
+        return render(request, 'yourFinance/success.html')
+    return render(request, 'yourFinance/confirm_delete.html')
+
+@login_required
+def configure_deposition_places(request):
+    """Enables configuring user stashNames field, stored in Profile model."""
+    userProfile = Profile.objects.get(user=request.user)
+    StashNameFormSet = formset_factory(NameForm, extra=1)
+    if request.method == 'POST':
+        formset = StashNameFormSet(request.POST)
+        if formset.is_valid():
+            newString = ''
+            for dictionary in formset.cleaned_data:
+                if dictionary and not dictionary['name']=='':
+                    newString += dictionary['name'] + '\n'
+            userProfile.stashNames = newString
+            userProfile.save()
+            return render(request, 'yourFinance/success.html')
+    formset = StashNameFormSet(
+        initial=make_initial_list('name', userProfile.stashNames)
+    )
+    return render(request, 'yourFinance/configure_names.html',
+                  {'formset': formset})
+
+@login_required
+def configure_monthly_costs(request):
+    """
+    Enables configuring user monthly cost fields,
+    stored in Profile model.
+    """
+    userProfile = Profile.objects.get(user=request.user)
+    if request.method == 'POST':
+        form = MonthlyCostsForm(request.POST)
+        if form.is_valid():
+            userProfile.existenceLevel = form.cleaned_data['existenceLevel']
+            userProfile.minimalLevel = form.cleaned_data['minimalLevel']
+            userProfile.standardLevel = form.cleaned_data['standardLevel']
+            userProfile.save()
+            print(userProfile.existenceLevel)
+            return render(request, 'yourFinance/success.html')
+    form = MonthlyCostsForm(instance=userProfile)
+    return render(request,
+                  'yourFinance/configure_monthly_costs.html',
+                  {'form': form})
+
+@login_required
+def configure_cost_groups(request):
+    """Enables configuring user costNames field, stored in Profile model."""
+    userProfile = Profile.objects.get(user=request.user)
+    CostNameFormSet = formset_factory(NameForm, extra=1)
+    if request.method == 'POST':
+        formset = CostNameFormSet(request.POST)
+        if formset.is_valid():
+            newString = ''
+            for dictionary in formset.cleaned_data:
+                if dictionary and not dictionary['name']=='':
+                    newString += dictionary['name'] + '\n'
+            userProfile.costNames = newString
+            userProfile.save()
+            return render(request, 'yourFinance/success.html')
+    formset = CostNameFormSet(
+        initial=make_initial_list('name', userProfile.costNames)
+    )
+    return render(request, 'yourFinance/configure_names.html',
+                  {'formset': formset})
+
