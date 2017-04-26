@@ -3,11 +3,30 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+monthsList = ['Jan', 'Feb', 'Mar', 'Apr',
+              'May', 'Jun', 'Jul', 'Aug',
+              'Sep', 'Oct', 'Nov', 'Dec']
+
 class Year(models.Model):
     user = models.ForeignKey(User)
     number = models.DecimalField(max_digits=4,
                                  decimal_places=0,
                                  verbose_name='Year')
+
+    def __str__(self):
+        return '{}'.format(self.number)
+
+    def get_ordered_months(self):
+        """
+        Provides ordered list of Month objects
+        for this Year object.
+        """
+        monthsObjList = []
+        for month in monthsList:
+            for obj in self.month_set.all():
+                if obj.name == month:
+                    monthsObjList.append(obj)
+        return monthsObjList
 
 
 class Month(models.Model):

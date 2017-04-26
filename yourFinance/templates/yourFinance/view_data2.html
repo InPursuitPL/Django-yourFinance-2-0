@@ -1,0 +1,15 @@
+{% extends 'yourFinance/base.html' %}
+{% block content %}
+	{% for year in years %}
+		{{ year.number|linebreaks }}
+		<br>
+		{% for month in year.get_ordered_months %}
+			{{ month.name|linebreaks }}
+			{% for stash in month.stash_set.all %}
+				{{stash.name}} {{stash.amount}}
+				<br>
+			{% endfor %}
+		{% endfor %}	
+	{% endfor %}
+	<button type="button"><a href="{% url 'index' %}">Back to main page.</a></button>
+{% endblock content %}
