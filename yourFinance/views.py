@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.forms import modelformset_factory
@@ -96,6 +96,24 @@ def add_data(request):
 
 @login_required
 def view_data(request):
+    "View User's all Year, Month and Stash objects."
     return render(request,
                   'yourFinance/view_data.html',
                   {'years': Year.objects.filter(user=request.user)})
+
+@login_required
+def edit_stash(request, pk):
+    """Edit single Stash entry."""
+    message = 'Here you can edit chosen data.'
+    stash = get_object_or_404(Stash, pk=pk)
+    # I've used here 'Easy Form Views Pattern' just to test it but i will
+    # not change other views to it, as there are some edge cases where this
+    # pattern will fail in an unexpected way. Explicit form seems also to
+    # be more pythonic.
+    form = StashForm(request.POST or None, instance=stash)
+    if form.is_valid():
+        form.save()
+        return render(request, 'yourFinance/success.html')
+    return render(request,
+                  'yourFinance/edit_stash.html',
+                  {'form': form, 'message': message})

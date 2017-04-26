@@ -6,7 +6,10 @@
 			{{ month.name|linebreaks }}
 			{% for stash in month.stash_set.all %}
 				{{stash.name}} {{stash.amount}}
+				<a href="{% url 'edit stash' stash.id %}">edit</a>
 				<br>
+			{% empty %}
+			<p>--No money deposition places for this month--</p>
 			{% endfor %}
 		{% endfor %}	
 	{% endfor %}
