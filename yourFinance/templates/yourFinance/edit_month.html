@@ -1,7 +1,7 @@
 {% extends 'yourFinance/base.html' %}
 {% block content %}
 {{message}}
-<form method="post" action=".">
+<form method="post">
 		{% csrf_token %}
 		{{ form }}
 		<table>

@@ -3,7 +3,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.forms import modelformset_factory, formset_factory
 
-from .forms import RegistrationForm, YearForm, MonthForm, StashForm, NameForm, MonthlyCostsForm
+from .forms import RegistrationForm, YearForm, MonthForm, \
+    StashForm, NameForm, MonthlyCostsForm, MonthFullForm
 from .models import Profile, Stash, Month, Year
 
 def make_initial_list(elementName, choicesString):
@@ -99,7 +100,8 @@ def view_data(request):
     "View User's all Year, Month and Stash objects."
     return render(request,
                   'yourFinance/view_data.html',
-                  {'years': Year.objects.filter(user=request.user)})
+                  {'years': Year.objects.filter(user=request.user
+                                                ).order_by('-number')})
 
 @login_required
 def edit_stash(request, pk):
@@ -127,14 +129,16 @@ def edit_month(request, pk):
                                         form=StashForm,
                                         extra=0)
     if request.method == 'POST':
-        form = MonthForm(request.POST, instance=month)
+        form = MonthFullForm(request.POST)
         formset = StashFormSet(request.POST)
         if form.is_valid() and formset.is_valid():
-            form.save()
+            month.name, month.year = form.cleaned_data['name'], \
+                                     form.cleaned_data['year']
+            month.save()
             formset.save()
             return render(request, 'yourFinance/success.html')
 
-    form = MonthForm(instance=month)
+    form = MonthFullForm(instance=month)
     formset = StashFormSet(queryset=Stash.objects.filter(month=month))
     return render(request,
                   'yourFinance/edit_month.html',
@@ -166,6 +170,31 @@ def delete_year(request, pk):
         year.delete()
         return render(request, 'yourFinance/success.html')
     return render(request, 'yourFinance/confirm_delete.html')
+
+@login_required
+def analyze_month(request):
+    yearObjects = Year.objects.filter(user=request.user).order_by('-number')
+    # Defined inner function to return from nested for loops as soon as it
+    # finds newest Stash objects.
+    def _newest_stashes_set(yearObjects):
+        for yearObj in yearObjects:
+            monthObjects = yearObj.get_ordered_months()
+            for monthObj in reversed(monthObjects):
+                if len(monthObj.stash_set.all()) > 0:
+                    stashObjects = monthObj.stash_set.all()
+                    return stashObjects
+    newestStashesGroup = _newest_stashes_set(yearObjects)
+    if not yearObjects or not newestStashesGroup:
+        return render(request,
+                      'yourFinance/failure.html',
+                      {'templateText': 'No data to analyze!'})
+    totalAmount = 0
+    for stashObj in newestStashesGroup:
+        totalAmount += stashObj.amount
+
+    templateText = newestStashesGroup
+    return render(request, 'yourFinance/success.html', {'templateText': templateText,})
+
 
 @login_required
 def configure_deposition_places(request):

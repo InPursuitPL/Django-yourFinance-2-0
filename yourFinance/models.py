@@ -28,6 +28,18 @@ class Year(models.Model):
                     monthsObjList.append(obj)
         return monthsObjList
 
+    def get_reverse_ordered_months(self):
+        """
+        Provides reversed ordered list of Month
+        objects for this Year object.
+        """
+        monthsObjList = []
+        for month in monthsList:
+            for obj in self.month_set.all():
+                if obj.name == month:
+                    monthsObjList.append(obj)
+        return reversed(monthsObjList)
+
 
 class Month(models.Model):
     NAME_CHOICES = (

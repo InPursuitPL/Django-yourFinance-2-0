@@ -11,6 +11,7 @@ urlpatterns = [
     url(r'^delete_stash/(?P<pk>\d+)$', views.delete_stash, name='delete stash'),
     url(r'^delete_month/(?P<pk>\d+)$', views.delete_month, name='delete month'),
     url(r'^delete_year/(?P<pk>\d+)$', views.delete_year, name='delete year'),
+    url(r'^analyze_month/$', views.analyze_month, name='analyze month'),
     url(r'^configure_deposition_places/$',
         views.configure_deposition_places,
         name='configure deposition places'),

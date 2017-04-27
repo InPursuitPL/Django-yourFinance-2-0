@@ -5,8 +5,7 @@
 		{{ year.number }}
 		<a href="{% url 'delete year' year.id %}">delete</a>
 		<br>
-		<br>
-		{% for month in year.get_ordered_months %}
+		{% for month in year.get_reverse_ordered_months %}
 			<br>
 			{{ month.name }}
 			<a href="{% url 'edit month' month.id %}">edit</a>
@@ -21,7 +20,11 @@
 			{% empty %}
 			<p>--No money deposition places for this month--</p>
 			{% endfor %}
+		{% empty %}
+		<p>--No months with data for this year--</p>
 		{% endfor %}	
+	{% empty %}
+	<p>--No years with data for this user--</p>
 	{% endfor %}
 	<button type="button"><a href="{% url 'index' %}">Back to main page.</a></button>
 {% endblock content %}

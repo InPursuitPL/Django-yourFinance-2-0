@@ -16,6 +16,10 @@ class MonthForm(forms.ModelForm):
         model = Month
         fields = ('name',)
 
+class MonthFullForm(forms.ModelForm):
+    class Meta:
+        model = Month
+        fields = ('name', 'year')
 
 class StashForm(forms.ModelForm):
     class Meta:
