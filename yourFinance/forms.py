@@ -37,6 +37,11 @@ class MonthlyCostsForm(forms.ModelForm):
         fields = ('existenceLevel', 'minimalLevel', 'standardLevel')
 
 
+class CostGroupsForm(forms.Form):
+  amount = forms.FloatField()
+  name = forms.CharField(widget=forms.HiddenInput())
+
+
 class RegistrationForm(forms.Form):
     username = forms.CharField(label='User name', max_length=30)
     email = forms.EmailField(label='E-mail')

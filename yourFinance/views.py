@@ -4,8 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.forms import modelformset_factory, formset_factory
 
 from .forms import RegistrationForm, YearForm, MonthForm, \
-    StashForm, NameForm, MonthlyCostsForm, MonthFullForm
-from .models import Profile, Stash, Month, Year
+    StashForm, NameForm, MonthlyCostsForm, MonthFullForm, \
+    CostGroupsForm
+from .models import Profile, Stash, Month, Year, monthsList
 
 def make_initial_list(elementName, choicesString):
     """Helper function to make initial list in formset."""
@@ -15,6 +16,69 @@ def make_initial_list(elementName, choicesString):
         if choicesList[i] != '':
             list.append({elementName:  choicesList[i]})
     return list
+
+def give_monthly_costs_information(userProfile, totalAmount):
+    """
+    Helper function for analyzing data.
+    Returns list of strings to view in template.
+    """
+    monthlyCostsList = [(userProfile.existenceLevel, 'existence level'),
+                        (userProfile.minimalLevel, 'minimal level'),
+                        (userProfile.standardLevel, 'standard level')]
+    monthlyCostsStrings = []
+    for amount in monthlyCostsList:
+        monthlyCostsStrings.append('Your current sum is enough for {} months'
+                                   ' based on {} amount of {}.'.format(
+            round(totalAmount / amount[0], 1),
+            amount[0],
+            amount[1]))
+    return monthlyCostsStrings
+
+
+def _newest_objects_set(yearObjects):
+    """
+    Helper function for analyzing data. Returns from nested
+    for loops as soon as it finds newest Stash objects.
+     """
+    for yearObj in yearObjects:
+        monthObjects = yearObj.get_ordered_months()
+        for monthObj in reversed(monthObjects):
+            if len(monthObj.stash_set.all()) > 0:
+                stashObjects = monthObj.stash_set.all()
+                return (stashObjects, monthObj, yearObj)
+
+def get_previous_entries_and_total(newestYearObj, newestMonthObj, monthsList, user):
+    """
+        Helper function for analyzing data. Returns stashes group and total
+        amount for month previous to newest or sets it to None if there
+        are no data.
+    """
+    previousYearObj = newestYearObj
+    previousTotalAmount = 0
+    if newestMonthObj.name == 'Jan':
+        previousYearNumber = newestYearObj.number - 1
+        try:
+            previousYearObj = Year.objects.get(user=user,
+                                               number=previousYearNumber)
+        except Year.DoesNotExist:
+            previousYearObj = None
+    if previousYearObj:
+        previousMonthName = monthsList[monthsList.index(newestMonthObj.name)-1]
+        try:
+            previousMonthObj = Month.objects.get(year=previousYearObj,
+                                                 name=previousMonthName)
+        except Month.DoesNotExist:
+            previousMonthObj = None
+    if previousMonthObj:
+        previousStashesGroup = previousMonthObj.stash_set.all()
+        if len(previousStashesGroup) == 0:
+            previousStashesGroup = None
+        else:
+            for stashObj in previousStashesGroup:
+                previousTotalAmount += stashObj.amount
+    else:
+        previousStashesGroup = None
+    return (previousStashesGroup, previousTotalAmount, previousMonthObj)
 
 def index(request):
     return render(request, 'yourFinance/index.html')
@@ -173,17 +237,14 @@ def delete_year(request, pk):
 
 @login_required
 def analyze_month(request):
+    userProfile = Profile.objects.get(user=request.user)
     yearObjects = Year.objects.filter(user=request.user).order_by('-number')
-    # Defined inner function to return from nested for loops as soon as it
-    # finds newest Stash objects.
-    def _newest_stashes_set(yearObjects):
-        for yearObj in yearObjects:
-            monthObjects = yearObj.get_ordered_months()
-            for monthObj in reversed(monthObjects):
-                if len(monthObj.stash_set.all()) > 0:
-                    stashObjects = monthObj.stash_set.all()
-                    return stashObjects
-    newestStashesGroup = _newest_stashes_set(yearObjects)
+    # External helper function in use to get newest objects.
+    if yearObjects:
+        newestStashesGroup, \
+        newestMonthObj, \
+        newestYearObj = _newest_objects_set(yearObjects)
+    # If there are no data, returns without analyzing.
     if not yearObjects or not newestStashesGroup:
         return render(request,
                       'yourFinance/failure.html',
@@ -191,9 +252,66 @@ def analyze_month(request):
     totalAmount = 0
     for stashObj in newestStashesGroup:
         totalAmount += stashObj.amount
+    # External function in use to collect data entries previous to
+    #  newest, if exist.
+    previousStashesGroup, \
+    previousTotalAmount, \
+    previousMonth = get_previous_entries_and_total(newestYearObj,
+                                                    newestMonthObj,
+                                                    monthsList,
+                                                    request.user)
+    # If there are any previous data, it will view it.
+    if previousStashesGroup:
+        arePrevious = True
+        messagePrevious = 'Data from previous record: '
+        previousTotalStatement = 'Total sum: {}'.format(previousTotalAmount)
+        gain = totalAmount - previousTotalAmount
+        if gain >= 0:
+            messageGain = 'You have gained {}'.format(gain)
+        else:
+            messageGain = 'You have lost {}'.format(abs(gain))
+    # If there are no previous data, only information about it will be visible.
+    else:
+        arePrevious = False
+        messagePrevious = 'No previous data in database.'
+    # Part to analyze for how long current sum will be enough. Uses external
+    # helper function.
+    monthlyCostsStrings = give_monthly_costs_information(userProfile, totalAmount)
+    # Part to ask in formset and analyze expenses in cost groups.
+    CostGroupsFormSet = formset_factory(CostGroupsForm, extra=0)
+    afterCostsMessage = ''
+    if request.method == 'POST':
+        cost_groups_formset = CostGroupsFormSet(request.POST)
+        if cost_groups_formset.is_valid():
+            totalCosts = 0
+            totalAmountAfterExpenses = float(totalAmount)
+            for dictionary in cost_groups_formset.cleaned_data:
+                totalCosts += dictionary['amount']
+                totalAmountAfterExpenses -= dictionary['amount']
+            afterCostsMessage = 'Your total current costs are {},' \
+                                ' after expenses you will have {}.' \
+                .format(totalCosts, totalAmountAfterExpenses)
+    else:
+        cost_groups_formset = CostGroupsFormSet(
+            initial=make_initial_list('name', userProfile.costNames)
+        )
+        afterCostsMessage = ''
+    templateDict = {'newestMonth': newestMonthObj,
+                    'newestStashesGroup': newestStashesGroup,
+                    'totalAmount': totalAmount,
+                    'messagePrevious': messagePrevious,
+                    'monthlyCostsStrings': monthlyCostsStrings,
+                    'formset': cost_groups_formset,
+                    'afterCostsMessage': afterCostsMessage
+                    }
+    # Added only if there were previous data before newest/required ones.
+    if arePrevious:
+        templateDict['previousMonth'] = previousMonth
+        templateDict['previousStashesGroup'] = previousStashesGroup
+        templateDict['previousTotalStatement'] = previousTotalStatement
+        templateDict['messageGain'] = messageGain
 
-    templateText = newestStashesGroup
-    return render(request, 'yourFinance/success.html', {'templateText': templateText,})
+    return render(request, 'yourFinance/analyze.html', templateDict)
 
 
 @login_required
